@@ -1,9 +1,15 @@
 package scheduler
 
-import "time"
+import (
+	"time"
+)
 
 type PoolCommand struct {
 	eCommand []CommandEntity
+}
+
+func GetEmptyPool() PoolCommand {
+	return PoolCommand{}
 }
 
 func (p *PoolCommand) Each(f func(entity *CommandEntity) bool, timeNow time.Time) {
@@ -28,6 +34,30 @@ func (p *PoolCommand) AddCommandEntity(entity CommandEntity) {
 	p.eCommand = append(p.eCommand, entity)
 }
 
+func (p *PoolCommand) AddRepeatCommand(command Command, args []string, once bool, timer time.Duration) {
+	var temp = new(RepeatCommand)
+	temp.ExCommand = SimpleCommand{
+		CCommand: command,
+		Args:     args,
+	}
+	temp.LastSend = time.Unix(0, 0)
+	temp.Once = once
+	temp.Timer = timer
+	p.AddCommandEntity(temp)
+}
+
+func (p *PoolCommand) AddScheduleCommand(command Command, args []string, once bool, hmc time.Duration) {
+	var temp = new(ScheduleCommand)
+	temp.ExCommand = SimpleCommand{
+		CCommand: command,
+		Args:     args,
+	}
+	temp.LastSend = time.Unix(0, 0)
+	temp.Once = once
+	temp.Hmc = hmc
+	p.AddCommandEntity(temp)
+}
+
 type TypeSchedule string
 
 const (
@@ -44,18 +74,18 @@ type CommandEntity interface {
 }
 
 type RepeatCommand struct {
-	command  ExecCommand
-	lastSend time.Time
-	once     bool
-	timer    time.Duration
+	ExCommand ExecCommand
+	LastSend  time.Time
+	Once      bool
+	Timer     time.Duration
 }
 
 func (r RepeatCommand) Command() ExecCommand {
-	return r.command
+	return r.ExCommand
 }
 
 func (r RepeatCommand) SendNow(timeNow time.Time) bool {
-	return r.lastSend.Add(r.timer).Unix() <= timeNow.Unix()
+	return r.LastSend.Add(r.Timer).Unix() <= timeNow.Unix()
 }
 
 func (r RepeatCommand) Type() TypeSchedule {
@@ -63,22 +93,22 @@ func (r RepeatCommand) Type() TypeSchedule {
 }
 
 func (r RepeatCommand) IsOnce() bool {
-	return r.once
+	return r.Once
 }
 
 func (r *RepeatCommand) Sent(timeNow time.Time) {
-	r.lastSend = timeNow
+	r.LastSend = timeNow
 }
 
 type ScheduleCommand struct {
-	command  ExecCommand
-	lastSend time.Time
-	once     bool
-	hmc      time.Duration
+	ExCommand ExecCommand
+	LastSend  time.Time
+	Once      bool
+	Hmc       time.Duration
 }
 
 func (s ScheduleCommand) Command() ExecCommand {
-	return s.command
+	return s.ExCommand
 }
 
 func (s ScheduleCommand) Type() TypeSchedule {
@@ -86,20 +116,20 @@ func (s ScheduleCommand) Type() TypeSchedule {
 }
 
 func (s ScheduleCommand) IsOnce() bool {
-	return s.once
+	return s.Once
 }
 
 func (s *ScheduleCommand) Sent(timeNow time.Time) {
-	s.lastSend = timeNow
+	s.LastSend = timeNow
 }
 
 func (s ScheduleCommand) SendNow(timeNow time.Time) bool {
 	location := timeNow.Location()
 	cYear, cMonth, cDay := timeNow.Date()
-	lYear, lMonth, lDay := s.lastSend.Date()
+	lYear, lMonth, lDay := s.LastSend.Date()
 
 	sNowDate := time.Date(cYear, cMonth, cDay, 0, 0, 0, 0, location)
-	isBigStartDate := timeNow.Sub(sNowDate) < s.hmc
+	isBigStartDate := timeNow.Sub(sNowDate) > s.Hmc
 	lastNotEqualNow := lYear != cYear || lMonth != cMonth || lDay != cDay
 
 	return isBigStartDate && lastNotEqualNow
@@ -110,4 +140,17 @@ type Command string
 type ExecCommand interface {
 	GetCommand() Command
 	GetArgs() []string
+}
+
+type SimpleCommand struct {
+	CCommand Command
+	Args     []string
+}
+
+func (s SimpleCommand) GetCommand() Command {
+	return s.CCommand
+}
+
+func (s SimpleCommand) GetArgs() []string {
+	return s.Args
 }
