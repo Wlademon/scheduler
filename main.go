@@ -9,13 +9,14 @@ import (
 
 func main() {
 	var test scheduler.Command = "123"
+	var test2 scheduler.Command = "123gf"
 	pool := scheduler.GetEmptyPool()
-	pool.AddRepeatCommand(test, []string{}, false, time.Hour)
-	pool.AddScheduleCommand(test, []string{}, true, time.Hour*23)
+	pool.AddRepeatCommand(test, []string{"test"}, false, time.Millisecond)
+	pool.AddScheduleCommand(test2, "test", true, time.Hour*22)
+
 	pool.Each(func(entity *scheduler.CommandEntity) bool {
-		fmt.Println((*entity).Type())
 		return true
-	}, time.Now())
+	}, time.Now(), nil)
 
 	fmt.Println(pool)
 }

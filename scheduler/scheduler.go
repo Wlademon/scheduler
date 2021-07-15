@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"time"
+
+	"github.com/satori/go.uuid"
 )
 
 type PoolCommand struct {
@@ -12,7 +14,7 @@ func GetEmptyPool() PoolCommand {
 	return PoolCommand{}
 }
 
-func (p *PoolCommand) Each(f func(entity *CommandEntity) bool, timeNow time.Time) {
+func (p *PoolCommand) Each(f func(entity *CommandEntity) bool, timeNow time.Time, af func()) {
 	var buffer []CommandEntity
 	for _, entity := range p.eCommand {
 		res := false
@@ -26,15 +28,19 @@ func (p *PoolCommand) Each(f func(entity *CommandEntity) bool, timeNow time.Time
 			buffer = append(buffer, entity)
 		}
 	}
+	if af != nil {
+		af()
+	}
 
 	p.eCommand = buffer
 }
 
 func (p *PoolCommand) AddCommandEntity(entity CommandEntity) {
+	entity.GetId()
 	p.eCommand = append(p.eCommand, entity)
 }
 
-func (p *PoolCommand) AddRepeatCommand(command Command, args []string, once bool, timer time.Duration) {
+func (p *PoolCommand) AddRepeatCommand(command Command, args interface{}, once bool, timer time.Duration) {
 	var temp = new(RepeatCommand)
 	temp.ExCommand = SimpleCommand{
 		CCommand: command,
@@ -46,7 +52,7 @@ func (p *PoolCommand) AddRepeatCommand(command Command, args []string, once bool
 	p.AddCommandEntity(temp)
 }
 
-func (p *PoolCommand) AddScheduleCommand(command Command, args []string, once bool, hmc time.Duration) {
+func (p *PoolCommand) AddScheduleCommand(command Command, args interface{}, once bool, hmc time.Duration) {
 	var temp = new(ScheduleCommand)
 	temp.ExCommand = SimpleCommand{
 		CCommand: command,
@@ -66,6 +72,7 @@ const (
 )
 
 type CommandEntity interface {
+	GetId() string
 	Command() ExecCommand
 	SendNow(timeNow time.Time) bool
 	Type() TypeSchedule
@@ -74,6 +81,7 @@ type CommandEntity interface {
 }
 
 type RepeatCommand struct {
+	id        string
 	ExCommand ExecCommand
 	LastSend  time.Time
 	Once      bool
@@ -100,7 +108,15 @@ func (r *RepeatCommand) Sent(timeNow time.Time) {
 	r.LastSend = timeNow
 }
 
+func (r *RepeatCommand) GetId() string {
+	if r.id == "" {
+		r.id = uuid.NewV4().String()
+	}
+	return r.id
+}
+
 type ScheduleCommand struct {
+	id        string
 	ExCommand ExecCommand
 	LastSend  time.Time
 	Once      bool
@@ -123,6 +139,13 @@ func (s *ScheduleCommand) Sent(timeNow time.Time) {
 	s.LastSend = timeNow
 }
 
+func (s *ScheduleCommand) GetId() string {
+	if s.id == "" {
+		s.id = uuid.NewV4().String()
+	}
+	return s.id
+}
+
 func (s ScheduleCommand) SendNow(timeNow time.Time) bool {
 	location := timeNow.Location()
 	cYear, cMonth, cDay := timeNow.Date()
@@ -139,18 +162,18 @@ type Command string
 
 type ExecCommand interface {
 	GetCommand() Command
-	GetArgs() []string
+	GetArgs() interface{}
 }
 
 type SimpleCommand struct {
 	CCommand Command
-	Args     []string
+	Args     interface{}
 }
 
 func (s SimpleCommand) GetCommand() Command {
 	return s.CCommand
 }
 
-func (s SimpleCommand) GetArgs() []string {
+func (s SimpleCommand) GetArgs() interface{} {
 	return s.Args
 }
