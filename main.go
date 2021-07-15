@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Wlademon/scheduler/scheduler"
@@ -15,8 +16,10 @@ func main() {
 	pool.AddScheduleCommand(test2, "test", true, time.Hour*22)
 
 	pool.Each(func(entity *scheduler.CommandEntity) bool {
-		return true
+		return false
 	}, time.Now(), nil)
+	pool.RemoveEntityByCommand(string(test2))
+	fmt.Println(strings.Join(pool.GetCommands(), "\n"))
 
 	fmt.Println(pool)
 }

@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/satori/go.uuid"
@@ -12,6 +13,41 @@ type PoolCommand struct {
 
 func GetEmptyPool() PoolCommand {
 	return PoolCommand{}
+}
+
+func (p PoolCommand) GetCommands() []string {
+	var out []string
+	for _, j := range p.eCommand {
+		out = append(out, fmt.Sprintf("id: %s command: %s args: %s", j.GetId(), j.Command().GetCommand(), j.Command().GetArgs()))
+	}
+
+	return out
+}
+
+func (p *PoolCommand) RemoveEntityByCommand(c string) {
+	var buffer []CommandEntity
+	for _, j := range p.eCommand {
+		if string(j.Command().GetCommand()) == c {
+			continue
+		}
+
+		buffer = append(buffer, j)
+	}
+
+	p.eCommand = buffer
+}
+
+func (p *PoolCommand) RemoveEntityById(id string) {
+	var buffer []CommandEntity
+	for _, j := range p.eCommand {
+		if j.GetId() == id {
+			continue
+		}
+
+		buffer = append(buffer, j)
+	}
+
+	p.eCommand = buffer
 }
 
 func (p *PoolCommand) Each(f func(entity *CommandEntity) bool, timeNow time.Time, af func()) {
