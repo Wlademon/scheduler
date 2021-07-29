@@ -5,28 +5,31 @@ import (
 	"time"
 
 	"github.com/satori/go.uuid"
+
+	"github.com/Wlademon/scheduler/worker"
 )
 
-type PoolCommand struct {
-	eCommand []CommandEntity
+type SchedulePool struct {
+	commands worker.CommandPool
+	entities []CommandEntity
 }
 
-func GetEmptyPool() PoolCommand {
-	return PoolCommand{}
+func GetEmptyPool(commands worker.CommandPool) SchedulePool {
+	return SchedulePool{commands: commands}
 }
 
-func (p PoolCommand) GetCommands() []string {
+func (p SchedulePool) GetCommands() []string {
 	var out []string
-	for _, j := range p.eCommand {
+	for _, j := range p.entities {
 		out = append(out, fmt.Sprintf("id: %s command: %s args: %s", j.GetId(), j.Command().GetCommand(), j.Command().GetArgs()))
 	}
 
 	return out
 }
 
-func (p *PoolCommand) RemoveEntityByCommand(c string) {
+func (p *SchedulePool) RemoveEntitiesByCommand(c string) {
 	var buffer []CommandEntity
-	for _, j := range p.eCommand {
+	for _, j := range p.entities {
 		if string(j.Command().GetCommand()) == c {
 			continue
 		}
@@ -34,12 +37,12 @@ func (p *PoolCommand) RemoveEntityByCommand(c string) {
 		buffer = append(buffer, j)
 	}
 
-	p.eCommand = buffer
+	p.entities = buffer
 }
 
-func (p *PoolCommand) RemoveEntityById(id string) {
+func (p *SchedulePool) RemoveEntityById(id string) {
 	var buffer []CommandEntity
-	for _, j := range p.eCommand {
+	for _, j := range p.entities {
 		if j.GetId() == id {
 			continue
 		}
@@ -47,15 +50,24 @@ func (p *PoolCommand) RemoveEntityById(id string) {
 		buffer = append(buffer, j)
 	}
 
-	p.eCommand = buffer
+	p.entities = buffer
 }
 
-func (p *PoolCommand) Each(f func(entity *CommandEntity) bool, timeNow time.Time, af func()) {
+func (p *SchedulePool) Each(f func(result worker.ResultWork) bool, timeNow time.Time, af func()) {
 	var buffer []CommandEntity
-	for _, entity := range p.eCommand {
+	for _, entity := range p.entities {
 		res := false
+		fn := p.commands.Commands[entity.Command().GetCommand()]
+		if fn.ExecutionFunc == nil {
+			continue
+		}
 		if entity.SendNow(timeNow) {
-			res = f(&entity)
+			result, err := fn.ExecutionFunc(&entity)
+			if err != nil {
+				res = false
+			} else {
+				res = f(result)
+			}
 		}
 		if res {
 			entity.Sent(timeNow)
@@ -68,15 +80,15 @@ func (p *PoolCommand) Each(f func(entity *CommandEntity) bool, timeNow time.Time
 		af()
 	}
 
-	p.eCommand = buffer
+	p.entities = buffer
 }
 
-func (p *PoolCommand) AddCommandEntity(entity CommandEntity) {
+func (p *SchedulePool) AddCommandEntity(entity CommandEntity) {
 	entity.GetId()
-	p.eCommand = append(p.eCommand, entity)
+	p.entities = append(p.entities, entity)
 }
 
-func (p *PoolCommand) AddRepeatCommand(command Command, args interface{}, once bool, timer time.Duration) {
+func (p *SchedulePool) AddRepeatCommand(command Command, args interface{}, once bool, timer time.Duration) {
 	var temp = new(RepeatCommand)
 	temp.ExCommand = SimpleCommand{
 		CCommand: command,
@@ -88,7 +100,7 @@ func (p *PoolCommand) AddRepeatCommand(command Command, args interface{}, once b
 	p.AddCommandEntity(temp)
 }
 
-func (p *PoolCommand) AddScheduleCommand(command Command, args interface{}, once bool, hmc time.Duration) {
+func (p *SchedulePool) AddScheduleCommand(command Command, args interface{}, once bool, hmc time.Duration) {
 	var temp = new(ScheduleCommand)
 	temp.ExCommand = SimpleCommand{
 		CCommand: command,
