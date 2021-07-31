@@ -13,10 +13,20 @@ func (p *CommandPool) SetCommand(nameCommand string, worker Worker) scheduler.Co
 	return c
 }
 
-func (p *CommandPool) SetProcessingFunc(nameCommand string, f func(pool *scheduler.SchedulePool, args ...interface{}) (ResultWork, error)) {
-	t := p.Commands[scheduler.Command(nameCommand)]
-	t.ProcessingFunc = f
-	p.Commands[scheduler.Command(nameCommand)] = t
+func (p CommandPool) ExistProcessingFunc(nameCommand string) bool {
+	return p.Commands[scheduler.Command(nameCommand)].ProcessingFunc != nil
+}
+
+func (p CommandPool) ExistExecutionFunc(nameCommand string) bool {
+	return p.Commands[scheduler.Command(nameCommand)].ExecutionFunc != nil
+}
+
+func (p CommandPool) GetProcessingFunc(command scheduler.Command) func(pool *scheduler.SchedulePool, args ...interface{}) (ResultWork, error) {
+	return p.Commands[command].ProcessingFunc
+}
+
+func (p CommandPool) GetExecutionFunc(command scheduler.Command) func(entity *scheduler.CommandEntity) (ResultWork, error) {
+	return p.Commands[command].ExecutionFunc
 }
 
 func (p *CommandPool) RemoveCommand(nameCommand string) {

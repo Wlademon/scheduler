@@ -10,11 +10,11 @@ import (
 )
 
 type SchedulePool struct {
-	commands worker.CommandPool
+	commands *worker.CommandPool
 	entities []CommandEntity
 }
 
-func GetEmptyPool(commands worker.CommandPool) SchedulePool {
+func GetEmptyPool(commands *worker.CommandPool) SchedulePool {
 	return SchedulePool{commands: commands}
 }
 
