@@ -5,16 +5,14 @@ import (
 	"time"
 
 	"github.com/satori/go.uuid"
-
-	"github.com/Wlademon/scheduler/worker"
 )
 
 type SchedulePool struct {
-	commands *worker.CommandPool
+	commands *CommandPool
 	entities []CommandEntity
 }
 
-func GetEmptyPool(commands *worker.CommandPool) SchedulePool {
+func GetEmptySchedulePool(commands *CommandPool) SchedulePool {
 	return SchedulePool{commands: commands}
 }
 
@@ -53,7 +51,7 @@ func (p *SchedulePool) RemoveEntityById(id string) {
 	p.entities = buffer
 }
 
-func (p *SchedulePool) Each(f func(result worker.ResultWork) bool, timeNow time.Time, af func()) {
+func (p *SchedulePool) Each(f func(result ResultWork) bool, timeNow time.Time, af func()) {
 	var buffer []CommandEntity
 	for _, entity := range p.entities {
 		res := false

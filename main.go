@@ -4,14 +4,17 @@ import (
 	"fmt"
 
 	"github.com/Wlademon/scheduler/scheduler"
-	"github.com/Wlademon/scheduler/worker"
 )
 
 func main() {
+	cp := scheduler.GetEmptyCommandPool()
+	pool := scheduler.GetEmptySchedulePool(&cp)
+	c := cp.SetCommand("first", scheduler.Worker{
+		ProcessingFunc: func(pool *scheduler.SchedulePool, args ...interface{}) (scheduler.ResultWork, error) {
+			return scheduler.ResultWork{Value: 1}, nil
+		},
+	})
+	pool.GetCommands()
 
-	cp := new(worker.CommandPool)
-	scheduler.GetEmptyPool(cp)
-	cp.SetCommand("first", worker.Worker{})
-
-	fmt.Println(cp.ExistProcessingFunc("first"))
+	fmt.Println(cp.GetCommands(), c)
 }
